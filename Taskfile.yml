@@ -1,0 +1,57 @@
+version: '3'
+
+tasks:
+  install:
+    desc: Install dependencies using uv
+    cmds:
+      - uv sync
+
+  dev:
+    desc: Run the application in development mode
+    cmds:
+      - uv run uvicorn src.listified.main:app --reload
+
+  test:
+    desc: Run all tests with coverage
+    cmds:
+      - uv run pytest
+
+  lint:
+    desc: Run linting checks with ruff
+    cmds:
+      - uv run ruff check src tests
+
+  format:
+    desc: Format code with ruff
+    cmds:
+      - uv run ruff format src tests
+
+  type-check:
+    desc: Run type checking with astral ty
+    cmds:
+      - uv run ty check src
+
+  migrate:
+    desc: Run pending database migrations
+    cmds:
+      - uv run alembic upgrade head
+
+  makemigrations:
+    desc: Create a new database migration
+    cmds:
+      - uv run alembic revision --autogenerate -m "{{.MESSAGE}}"
+
+  check:
+    desc: Run all checks (lint, format, type-check, test)
+    cmds:
+      - task: lint
+      - task: format
+      - task: type-check
+      - task: test
+
+  clean:
+    desc: Clean up cache and build artifacts
+    cmds:
+      - find . -type d -name __pycache__ -exec rm -rf {} + || true
+      - find . -type f -name "*.pyc" -delete
+      - rm -rf .pytest_cache .coverage htmlcov dist build
