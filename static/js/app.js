@@ -117,10 +117,10 @@ function appState() {
                 });
                 if (!response.ok) throw new Error('Failed to update list');
 
-                // Optimistic update
-                list.completed_at = completed_at;
-                if (this.currentList && this.currentList.id === list.id) {
-                    this.currentList.completed_at = completed_at;
+                // Optimistic update - reload from API to ensure consistency
+                await this.loadLists();
+                if (this.currentListId) {
+                    await this.loadItems();
                 }
             } catch (err) {
                 this.error = err.message;

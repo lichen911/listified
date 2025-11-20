@@ -281,7 +281,7 @@
 
                                 <div class="item-actions">
                                     <button
-                                        @click="toggleItemCompletion(item)"
+                                        @click.stop="toggleItemCompletion(item)"
                                         class="icon-btn"
                                         :disabled="loading"
                                         :title="item.completed_at ? 'Mark incomplete' : 'Mark complete'"

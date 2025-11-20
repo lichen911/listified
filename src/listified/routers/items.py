@@ -207,14 +207,15 @@ async def patch_item(
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
 
-    # Update fields only if provided
-    if item_data.name is not None:
+    # Update fields only if explicitly provided in the request
+    if "name" in item_data.model_fields_set and item_data.name is not None:
         item.name = item_data.name
-    if item_data.description is not None:
+    if "description" in item_data.model_fields_set and item_data.description is not None:
         item.description = item_data.description
-    if item_data.order is not None:
+    if "order" in item_data.model_fields_set and item_data.order is not None:
         item.order = item_data.order
-    if item_data.completed_at is not None:
+    if "completed_at" in item_data.model_fields_set:
+        # Allow setting completed_at to null to mark as incomplete
         item.completed_at = item_data.completed_at
 
     item.updated_at = datetime.now(UTC)

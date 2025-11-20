@@ -144,12 +144,13 @@ async def patch_list(
     if not list_obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
 
-    # Update fields only if provided
-    if list_data.name is not None:
+    # Update fields only if explicitly provided in the request
+    if "name" in list_data.model_fields_set and list_data.name is not None:
         list_obj.name = list_data.name
-    if list_data.description is not None:
+    if "description" in list_data.model_fields_set and list_data.description is not None:
         list_obj.description = list_data.description
-    if list_data.completed_at is not None:
+    if "completed_at" in list_data.model_fields_set:
+        # Allow setting completed_at to null to mark as incomplete
         list_obj.completed_at = list_data.completed_at
 
     list_obj.updated_at = datetime.now(UTC)
