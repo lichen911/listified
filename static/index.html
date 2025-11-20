@@ -233,7 +233,7 @@
                                 :data-id="item.id"
                                 draggable="true"
                             >
-                                <div class="item-content" @click.outside="editingItemId = null">
+                                <div class="item-content">
                                     <!-- Item Name Edit Mode -->
                                     <template x-if="editingItemId === item.id">
                                         <input
@@ -250,7 +250,7 @@
                                     <!-- Item Name Display Mode -->
                                     <h4
                                         x-show="editingItemId !== item.id"
-                                        @click="startEditItemName(item)"
+                                        @click.stop="startEditItemName(item)"
                                         class="editable-item-name"
                                         x-text="item.name"
                                         title="Click to edit"
@@ -272,7 +272,7 @@
                                     <!-- Item Description Display Mode -->
                                     <p
                                         x-show="editingItemId !== item.id && item.description"
-                                        @click="startEditItemDesc(item)"
+                                        @click.stop="startEditItemDesc(item)"
                                         class="editable-item-desc"
                                         x-text="item.description"
                                         title="Click to edit"
