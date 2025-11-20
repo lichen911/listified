@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listified</title>
+
+    <!-- PicoCSS for semantic HTML styling -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="css/custom.css">
+
+    <!-- Application logic (must load before Alpine.js) -->
+    <script src="js/app.js"></script>
+
+    <!-- Sortable.js for drag-and-drop -->
+    <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+    <!-- Alpine.js for reactive data binding (must load last) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <div class="app-container" x-data="appState()" x-init="init()">
+        <!-- Error notification -->
+        <div x-show="error" role="alert" class="error-alert">
+            <strong>Error:</strong> <span x-text="error"></span>
+            <button @click="error = ''" aria-label="Close notification">×</button>
+        </div>
+
+        <!-- Left Sidebar -->
+        <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
+            <!-- Sidebar Header -->
+            <div class="sidebar-header">
+                <h1>Listified</h1>
+                <button
+                    @click="sidebarCollapsed = !sidebarCollapsed"
+                    class="sidebar-toggle"
+                    :title="sidebarCollapsed ? 'Expand' : 'Collapse'"
+                    aria-label="Toggle sidebar"
+                >
+                    ☰
+                </button>
+            </div>
+
+            <!-- Create List Form -->
+            <form @submit.prevent="createList" class="create-list-form">
+                <fieldset>
+                    <input
+                        type="text"
+                        x-model="newList.name"
+                        placeholder="New list name"
+                        required
+                        :disabled="loading"
+                        aria-label="New list name"
+                    >
+                    <input
+                        type="text"
+                        x-model="newList.description"
+                        placeholder="Description"
+                        :disabled="loading"
+                        aria-label="New list description"
+                    >
+                    <button type="submit" :disabled="loading">Create List</button>
+                </fieldset>
+            </form>
+
+            <!-- Lists Container -->
+            <nav class="sidebar-lists">
+                <ul
+                    id="lists-sortable"
+                    class="lists-menu"
+                >
+                    <template x-for="list in lists" :key="list.id">
+                        <li
+                            class="list-item"
+                            :class="{ active: currentListId === list.id, completed: list.completed_at }"
+                            :data-id="list.id"
+                            draggable="true"
+                        >
+                            <a
+                                href="#"
+                                @click.prevent="selectList(list)"
+                                class="list-link"
+                                :title="list.name"
+                            >
+                                <span class="list-name" x-text="list.name"></span>
+                                <span x-show="list.completed_at" class="badge">✓</span>
+                            </a>
+                            <div class="list-actions">
+                                <button
+                                    @click.stop="toggleListCompletion(list)"
+                                    class="icon-btn"
+                                    :disabled="loading"
+                                    :title="list.completed_at ? 'Mark incomplete' : 'Mark complete'"
+                                >
+                                    <span x-show="!list.completed_at">●</span>
+                                    <span x-show="list.completed_at">✓</span>
+                                </button>
+                                <button
+                                    @click.stop="deleteList(list.id)"
+                                    class="icon-btn danger"
+                                    :disabled="loading"
+                                    title="Delete list"
+                                >×</button>
+                            </div>
+                        </li>
+                    </template>
+                </ul>
+
+                <!-- Empty state -->
+                <div x-show="lists.length === 0" class="empty-state">
+                    <p>No lists yet. Create one!</p>
+                </div>
+            </nav>
+
+            <!-- Sidebar Footer with Dark/Light Mode -->
+            <div class="sidebar-footer">
+                <button
+                    @click="toggleDarkMode()"
+                    class="mode-toggle"
+                    :title="darkMode ? 'Light mode' : 'Dark mode'"
+                    aria-label="Toggle dark/light mode"
+                >
+                    <span x-show="!darkMode">🌙 Dark</span>
+                    <span x-show="darkMode">☀️ Light</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Panel -->
+        <main class="main-panel">
+            <!-- Loading indicator -->
+            <div x-show="loading" class="loading-spinner">
+                <p>Loading...</p>
+            </div>
+
+            <!-- Selected List View -->
+            <div x-show="!loading && currentList" class="list-detail">
+                <!-- List Header with Inline Editing -->
+                <header class="list-header">
+                    <div class="list-title-area" @click.outside="editingListName = false">
+                        <!-- Title Edit Mode -->
+                        <template x-if="editingListName">
+                            <input
+                                type="text"
+                                x-model="currentList.name"
+                                @blur="saveListName"
+                                @keydown.enter="saveListName"
+                                @keydown.escape="cancelListNameEdit"
+                                class="inline-edit"
+                                autofocus
+                                aria-label="Edit list name"
+                            >
+                        </template>
+                        <!-- Title Display Mode -->
+                        <h2
+                            x-show="!editingListName && currentList"
+                            @click="startEditListName"
+                            class="editable-title"
+                            x-text="currentList?.name"
+                            title="Click to edit"
+                        ></h2>
+                    </div>
+
+                    <div class="list-desc-area" x-show="!editingListName" @click.outside="editingListDesc = false">
+                        <!-- Description Edit Mode -->
+                        <template x-if="editingListDesc">
+                            <input
+                                type="text"
+                                x-model="currentList.description"
+                                @blur="saveListDescription"
+                                @keydown.enter="saveListDescription"
+                                @keydown.escape="cancelListDescEdit"
+                                class="inline-edit"
+                                autofocus
+                                aria-label="Edit list description"
+                                placeholder="Add description"
+                            >
+                        </template>
+                        <!-- Description Display Mode -->
+                        <p
+                            x-show="!editingListDesc && currentList && currentList.description"
+                            @click="startEditListDesc"
+                            class="editable-desc"
+                            x-text="currentList?.description"
+                            title="Click to edit"
+                        ></p>
+                        <p
+                            x-show="!editingListDesc && currentList && !currentList.description"
+                            @click="startEditListDesc"
+                            class="editable-desc empty"
+                            title="Click to add description"
+                        >Add description...</p>
+                    </div>
+                </header>
+
+                <!-- Add Item Form -->
+                <article class="add-item-form">
+                    <header>
+                        <h3>Add Item</h3>
+                    </header>
+                    <form @submit.prevent="createItem">
+                        <div role="group">
+                            <input
+                                type="text"
+                                x-model="newItem.name"
+                                placeholder="Item name"
+                                required
+                                :disabled="loading"
+                            >
+                            <input
+                                type="text"
+                                x-model="newItem.description"
+                                placeholder="Description (optional)"
+                                :disabled="loading"
+                            >
+                            <button type="submit" :disabled="loading">Add Item</button>
+                        </div>
+                    </form>
+                </article>
+
+                <!-- Items List -->
+                <div class="items-section">
+                    <div
+                        id="items-sortable"
+                        class="items-list"
+                    >
+                        <template x-for="item in currentList?.items || []" :key="item.id">
+                            <div
+                                class="item-card"
+                                :class="{ completed: item.completed_at }"
+                                :data-id="item.id"
+                                draggable="true"
+                            >
+                                <div class="item-content" @click.outside="editingItemId = null">
+                                    <!-- Item Name Edit Mode -->
+                                    <template x-if="editingItemId === item.id">
+                                        <input
+                                            type="text"
+                                            x-model="item.name"
+                                            @blur="saveItemName(item)"
+                                            @keydown.enter="saveItemName(item)"
+                                            @keydown.escape="cancelItemEdit(item)"
+                                            class="inline-edit"
+                                            autofocus
+                                            aria-label="Edit item name"
+                                        >
+                                    </template>
+                                    <!-- Item Name Display Mode -->
+                                    <h4
+                                        x-show="editingItemId !== item.id"
+                                        @click="startEditItemName(item)"
+                                        class="editable-item-name"
+                                        x-text="item.name"
+                                        title="Click to edit"
+                                    ></h4>
+
+                                    <!-- Item Description Edit Mode -->
+                                    <template x-if="editingItemId === item.id">
+                                        <input
+                                            type="text"
+                                            x-model="item.description"
+                                            @blur="saveItemDescription(item)"
+                                            @keydown.enter="saveItemDescription(item)"
+                                            @keydown.escape="cancelItemEdit(item)"
+                                            class="inline-edit"
+                                            placeholder="Description"
+                                            aria-label="Edit item description"
+                                        >
+                                    </template>
+                                    <!-- Item Description Display Mode -->
+                                    <p
+                                        x-show="editingItemId !== item.id && item.description"
+                                        @click="startEditItemDesc(item)"
+                                        class="editable-item-desc"
+                                        x-text="item.description"
+                                        title="Click to edit"
+                                    ></p>
+                                </div>
+
+                                <div class="item-actions">
+                                    <button
+                                        @click="toggleItemCompletion(item)"
+                                        class="icon-btn"
+                                        :disabled="loading"
+                                        :title="item.completed_at ? 'Mark incomplete' : 'Mark complete'"
+                                    >
+                                        <span x-show="!item.completed_at">●</span>
+                                        <span x-show="item.completed_at">✓</span>
+                                    </button>
+                                    <button
+                                        @click="deleteItem(item.id)"
+                                        class="icon-btn danger"
+                                        :disabled="loading"
+                                        title="Delete item"
+                                    >×</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Empty state -->
+                    <div x-show="currentList && (!currentList.items || currentList.items.length === 0)" class="empty-state">
+                        <p>No items yet. Add one to get started!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- No list selected -->
+            <div x-show="!loading && !currentList" class="empty-state centered">
+                <p>Select a list or create a new one</p>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

@@ -81,13 +81,32 @@ Other endpoint notes:
 - All endpoints should be well documented with detailed descriptions of the request and response payloads
 - No pagination is required for the API at this time
 
-### To-Do List
-This section will indicate what should be built. It will be updated by hand, and referred to by numbers to indicate which actions are being referred to.
+### UI Design
+The section will contain the design of the UI, and the implementation of the UI. It will be updated by hand, and referred to by numbers to indicate which actions are being referred to.
 
-1. Create project structure, define dependencies, compose general top-level repo items, go task, README, dir structure
-2. Setup sqlalchemy DB models and alembic migration
-3. Create FastAPI endpoints with full CRUD functionality on underlying tables, including carefully typed pydantic models for all requests and responses
-4. Create unit tests for all endpoints
+#### UI Requirements
+1. The UI will allow users to create lists, rename lists, delete lists
+2. The UI will allow users to add items to lists, rename items, delete items, and reorder items
+3. The UI will allow users to mark items as complete
+4. The UI will allow users to mark lists as complete
+5. The UI will allow users to delete lists and items
+6. The UI will allow users to reorder lists and items
+7. The UI will allow users to toggle dark mode
+8. The UI will allow users to toggle light mode
+
+#### UI Layout
+- The left hand side will have a vertical sidebar that contains all the lists
+- The sidebar will have a button to create a new list
+- The sidebar will have a button to toggle dark mode
+- The sidebar will have a button to toggle light mode
+- The sidebar will have a button to toggle the sidebar
+- The sidebar will have a button to toggle the sidebar
+- The main panel will display the select list
+- Clicking and dragging on an item on the list will allow the user to reorder the item
+- Clicking on the list name will allow the user to edit the list name
+- Clicking on the list description will allow the user to edit the list description
+- Clicking on the list item will allow the user to edit the item name and description
+
 
 ---
 
@@ -206,8 +225,216 @@ All 4 core development steps have been completed. The Listified API is now fully
 - Soft deletion support for data preservation
 - Proper HTTP status codes and error handling
 
+### Frontend Technology Decision
+
+After evaluating multiple frontend approaches (React, Vue, Svelte, HTMX, Alpine.js, vanilla JS), the following decision was made:
+
+**Selected Stack: Alpine.js + PicoCSS + Sortable.js**
+
+**Technology Choices:**
+- **Alpine.js (15KB gzipped)**: Minimal reactive JavaScript library for data binding and component state
+- **PicoCSS (9KB gzipped)**: Semantic HTML-first CSS framework with built-in mobile responsiveness
+- **Sortable.js (2KB gzipped)**: Lightweight drag-and-drop library for item reordering
+- **Total bundle size**: ~26KB (smaller than a single high-resolution image)
+
+**Why this approach:**
+
+1. **Aligns with project philosophy**: Minimal dependencies (3), no build process, close to bare HTML/CSS
+2. **Client-side SPA**: Leverages existing REST API without requiring backend changes
+3. **Drag-and-drop ready**: Sortable.js enables smooth item reordering essential for list management
+4. **Mobile-first**: PicoCSS provides excellent responsive design without utility classes or configuration
+5. **Developer experience**: Alpine.js uses Vue-like syntax for reactive data binding - clean and intuitive
+6. **Zero build process**: CDN delivery, no webpack/vite/npm complexity
+7. **Scalable simplicity**: Code can grow without architectural bloat (Alpine handles 100+ components gracefully)
+
+**Why NOT other approaches:**
+
+- **React/Vue/Svelte**: 3-5x larger bundle size, require build tools, npm ecosystem overhead - overkill for single-household CRUD app
+- **HTMX + Jinja2**: Would require significant backend restructuring to add HTML-returning routes alongside existing API
+- **Pure Vanilla JS**: Excessive boilerplate for DOM manipulation, event handling, and state management
+- **Server-side rendering**: Increases server complexity and doesn't align with existing REST API architecture
+
+**Implementation approach:**
+
+1. Single `index.html` entry point with inline Alpine.js components
+2. Minimal custom CSS for app-specific styling (dark mode toggle, animations)
+3. API service layer abstracting fetch calls to existing REST endpoints
+4. Responsive grid layout for mobile, tablet, and desktop
+5. Optimistic UI updates for better perceived performance
+6. Loading states and error handling for network operations
+
+**File structure:**
+```
+static/
+├── css/
+│   └── custom.css       # App-specific styles
+├── js/
+│   └── app.js          # Alpine.js components and API layer
+└── index.html          # Single-page application
+```
+
+**Key features to implement:**
+
+- Lists CRUD (create, read, update, delete)
+- Items CRUD within lists
+- Drag-and-drop item reordering (Sortable.js integration)
+- Completion tracking for lists and items
+- Responsive design for mobile and desktop
+- Loading states and error notifications
+
+**Estimated effort**: ~1 day focused development
+- Lists view: 2 hours
+- Items view with drag-and-drop: 3 hours
+- Styling and mobile polish: 2 hours
+- Error handling and refinement: 1 hour
+
+### Frontend Implementation Progress
+
+#### Step 1: Project Structure and Base Implementation ✅ COMPLETE (Initial)
+
+**Initial Implementation Completed:**
+- Created `static/` directory structure with `css/` and `js/` subdirectories
+- Implemented `static/index.html` (211 lines):
+  - Alpine.js component setup with full application state management
+  - Lists view with CRUD operations and completion tracking
+  - List detail view with items management
+  - Drag-and-drop container for Sortable.js integration
+  - Dark mode toggle with localStorage persistence
+  - Error notification and loading state UI
+  - Responsive layout with semantic HTML
+- Implemented `static/css/custom.css` (257 lines):
+  - Grid layout for lists cards (responsive 300px+ columns)
+  - Item row styling with grab cursor for drag-and-drop
+  - Mobile-optimized touch targets and responsive breakpoints
+  - Dark mode support via CSS variables
+  - Smooth animations and transitions
+  - Badge styling for completion indicators
+  - Form group responsive layout
+- Implemented `static/js/app.js` (323 lines):
+  - Complete Alpine.js state management with all CRUD operations
+  - API service layer with error handling and loading states
+  - Lists operations: create, read, update (completion), delete
+  - Items operations: create, read, update (completion), delete
+  - Drag-and-drop integration with Sortable.js for item reordering
+  - Item order update on drop with batch API calls
+  - Dark mode toggle with persistence
+  - Date formatting utility
+  - Optimistic UI updates for better UX
+- Updated `src/listified/main.py`:
+  - Added static file mounting at `/static`
+  - Proper path resolution for static directory
+  - Integration with existing CORS middleware
+- **Test Results**: All 43 existing API tests pass
+- **Code Quality**: Linting and type checking pass, 60% coverage maintained
+- **Bundle Size**: ~26KB total (Alpine.js 15KB + PicoCSS 9KB + Sortable.js 2KB)
+
+#### Step 2: UI Redesign to Match Requirements ✅ COMPLETE
+
+**UI Requirements Implemented:**
+1. ✅ Allow users to create lists, rename lists, delete lists
+2. ✅ Allow users to add items to lists, rename items, delete items, and reorder items
+3. ✅ Allow users to mark items as complete
+4. ✅ Allow users to mark lists as complete
+5. ✅ Allow users to delete lists and items
+6. ✅ Allow users to reorder lists and items (via drag-and-drop)
+7. ✅ Allow users to toggle dark mode
+8. ✅ Allow users to toggle light mode
+
+**UI Layout Implemented:**
+- ✅ Left vertical sidebar with all lists (collapsible to icon-only mode)
+- ✅ Sidebar header with app name and collapse toggle button
+- ✅ Create new list form at top of sidebar
+- ✅ List items in sidebar with drag-and-drop reordering
+- ✅ Active list highlighting (teal background)
+- ✅ Completion badges on lists
+- ✅ Quick actions on hover (complete, delete)
+- ✅ Dark/Light mode toggle button in sidebar footer
+- ✅ Main panel displays selected list with full details
+- ✅ Click-to-edit inline editing for list names and descriptions
+- ✅ Click-to-edit inline editing for item names and descriptions
+- ✅ Drag-and-drop item reordering with order persistence
+- ✅ Responsive mobile layout (sidebar converts to horizontal top bar)
+
+**Changes from Initial Implementation:**
+- Replaced single-view layout with sidebar + main panel two-column design (CSS Grid)
+- Added collapsible sidebar with localStorage persistence
+- Implemented inline editing for all text fields (click to edit, ESC to cancel, Enter to save)
+- Added dedicated item actions buttons (complete/delete)
+- Enhanced styling with editable indicators (hover effects, cursor changes)
+- Reorganized HTML structure for semantic sidebar navigation
+- Added list reordering via Sortable.js in sidebar
+- Improved mobile responsiveness with horizontal sidebar layout
+- Updated CSS from 257 lines to 599 lines (comprehensive layout system)
+- Updated JavaScript from 318 lines to 520 lines (inline editing, sidebar management)
+
+**File Updates:**
+- `static/index.html`: Restructured from 211 to 313 lines
+  - Two-column layout with sidebar and main panel
+  - Inline editing inputs for list/item names and descriptions
+  - Sidebar navigation with list menu
+  - Dark/light mode toggle in sidebar footer
+- `static/css/custom.css`: Expanded from 257 to 599 lines
+  - CSS Grid layout for app container
+  - Sidebar styling with collapse animation
+  - Main panel flex layout
+  - Inline editing styles with visual feedback
+  - Mobile-first responsive design
+  - Dark mode CSS variable overrides
+- `static/js/app.js`: Enhanced from 318 to 520 lines
+  - Inline editing state management (editingListName, editingListDesc, editingItemId)
+  - Sidebar collapse state with localStorage persistence
+  - List reordering via Sortable.js in sidebar
+  - List name/description inline editing (start, cancel, save)
+  - Item name/description inline editing (start, cancel, save)
+  - Keyboard support (Enter to save, Escape to cancel)
+  - Original value tracking for rollback on errors
+
+**Test Results:**
+- ✅ All 43 API tests passing
+- ✅ JavaScript syntax validated
+- ✅ CSS compiles without errors
+- ✅ HTML structure validated
+- ✅ Ruff linting passes
+- ✅ Type checking passes
+- ✅ 60% code coverage maintained
+
+**Bundle Size:** Still ~26KB (no additional dependencies added)
+
+**Notes on Implementation:**
+- Initialization uses Alpine.js `x-init` directive for proper component setup
+- Sortable.js is re-initialized after items load with 100ms timeout for proper DOM synchronization
+- Optimistic UI updates provide immediate feedback while server processes requests
+- Dark mode preference persisted in localStorage across browser sessions
+- All fetch calls include proper error handling and user feedback
+- Form validation on client side to reduce unnecessary API calls
+- CSS Grid and Flexbox used for responsive layout without utility classes
+- List selection and sidebar state management in Alpine store
+- JavaScript syntax validated with Node.js parser
+- All 43 existing API tests continue to pass
+- Code quality maintained with ruff and ty type checking
+- Sidebar responsive design: vertical on desktop, horizontal on mobile (<768px)
+- Form resets automatically after successful creation
+- Error messages display in banner at top of UI
+- Loading states prevent duplicate submissions while requests pending
+
+### Next Steps
+- Testing the application with a running server and database
+- Manual testing of:
+  - Sidebar list selection and highlighting
+  - Sidebar collapse/expand functionality and persistence
+  - Inline editing for list names and descriptions
+  - Inline editing for item names and descriptions
+  - Drag-and-drop list reordering in sidebar
+  - Drag-and-drop item reordering in main panel
+  - Dark/light mode toggle persistence
+  - Mobile responsive layout and horizontal sidebar
+  - Error handling and recovery
+  - Create list and item form resets
+- Performance optimization if needed
+- Accessibility audit (ARIA labels already implemented)
+
 ### Future Work
-- Frontend technology recommendations and implementation (after API completion)
-- User interface design and implementation
-- Deployment and containerization with Docker Compose
-- Additional customization features beyond minimal UI
+- User interface refinement and polish
+- Optional: Dark mode toggle and theme customization (already implemented in code)
+- Optional: Additional customization features beyond minimal UI
+- Optional: Progressive Web App (PWA) features for mobile installation

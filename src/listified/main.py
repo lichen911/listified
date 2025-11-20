@@ -1,9 +1,16 @@
 """Listified FastAPI application entry point."""
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from .routers import items, lists
+
+# Get the absolute path to static files directory
+STATIC_DIR = Path(__file__).parent.parent.parent / "static"
 
 app = FastAPI(
     title="Listified",
@@ -28,6 +35,25 @@ app.include_router(lists.router)
 app.include_router(items.router)
 
 
+@app.get("/")
+def serve_index() -> FileResponse:
+    """Serve the main SPA index.html at the root path."""
+    index_path = STATIC_DIR / "index.html"
+    return FileResponse(index_path)
+
+
+# Mount static files (CSS, JS, etc.) at the root
+# Note: This must come after other routes to avoid conflicts
+if STATIC_DIR.exists():
+    # Mount subdirectories directly under root paths
+    css_dir = STATIC_DIR / "css"
+    js_dir = STATIC_DIR / "js"
+    if css_dir.exists():
+        app.mount("/css", StaticFiles(directory=str(css_dir)), name="css")
+    if js_dir.exists():
+        app.mount("/js", StaticFiles(directory=str(js_dir)), name="js")
+
+
 @app.get("/health")
 def health_check() -> dict[str, str]:
     """Health check endpoint.
@@ -36,16 +62,6 @@ def health_check() -> dict[str, str]:
         Dictionary with status information.
     """
     return {"status": "ok"}
-
-
-@app.get("/")
-def root() -> dict[str, str]:
-    """Root endpoint.
-
-    Returns:
-        Dictionary with welcome message.
-    """
-    return {"message": "Welcome to Listified"}
 
 
 if __name__ == "__main__":
